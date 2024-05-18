@@ -3,6 +3,9 @@ name: Send NextDNS Report to Telegram
 on:
   schedule:
     - cron: '0 21 * * *' # This will run at 7 AM UTC every day
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
