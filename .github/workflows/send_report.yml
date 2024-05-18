@@ -1,0 +1,39 @@
+name: Send NextDNS Report to Telegram
+
+on:
+  schedule:
+    - cron: '0 21 * * *' # This will run at 7 AM UTC every day
+  workflow_dispatch:
+
+jobs:
+  send_report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          pip install nextdnsapi python-telegram-bot
+
+      - name: Run the script
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+          CREDENTIALS: ${{ vars.CREDENTIALS }}
+        run: python nextdns_to_telegram.py
+
+  keepalive-job:
+    name: Keepalive Workflow
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gautamkrishnar/keepalive-workflow@v2
