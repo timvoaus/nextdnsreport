@@ -63,10 +63,6 @@ async def process_credentials():
     final_message = "\n\n".join(messages)
     await send_telegram_message(final_message)
 
-# Function to run the async process
-def run_async_process():
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(process_credentials())
-
 # Run the async process
-run_async_process()
+if __name__ == "__main__":
+    asyncio.run(process_credentials())
