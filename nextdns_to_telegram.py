@@ -28,6 +28,7 @@ async def send_telegram_message(message):
 
 # Main function to process the credentials and collect messages
 async def process_credentials():
+    total_queries = 300000
     messages = []
     for i in range(0, len(lines), 3):
         login = lines[i]
@@ -38,9 +39,20 @@ async def process_credentials():
             header = account.login(login, passwrd)
             month_data = account.month(header)
             monthly_queries = month_data.get('monthlyQueries', 'No data')
-
+            
+            if monthly_queries != 'No data':
+                # Calculate the percentage of total queries
+                percentage_of_total = (monthly_queries / total_queries) * 100
+                percentage_of_total_str = f"{percentage_of_total:.2f}%"
+            else:
+                percentage_of_total_str = 'No data'
+                
             # Prepare the message
-            message = f"<b>Login:</b> {login}\n<b>Monthly Queries:</b> {monthly_queries}"
+            message = (
+                f"<b>Login:</b> {login}\n"
+                f"<b>Monthly Queries:</b> {monthly_queries}\n"
+                f"<b>Percentage of Total Queries:</b> {percentage_of_total_str}"
+            )
             messages.append(message)
             
         except Exception as e:
