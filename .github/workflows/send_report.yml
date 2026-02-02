@@ -13,9 +13,36 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      # -----------------------------
+      # Checkout with retry logic
+      # -----------------------------
+      - name: Checkout attempt 1
+        id: checkout1
+        uses: actions/checkout@v4
+        continue-on-error: true
+
+      - name: Checkout attempt 2 (retry)
+        id: checkout2
+        if: ${{ steps.checkout1.outcome == 'failure' }}
+        uses: actions/checkout@v4
+        continue-on-error: true
+
+      - name: Checkout attempt 3 (final retry)
+        id: checkout3
+        if: ${{ steps.checkout2.outcome == 'failure' }}
         uses: actions/checkout@v4
 
+      - name: Verify checkout succeeded
+        run: |
+          if [ ! -d ".git" ]; then
+            echo "❌ Repository checkout failed after 3 attempts."
+            exit 1
+          fi
+          echo "✅ Checkout succeeded."
+
+      # -----------------------------
+      # Python environment
+      # -----------------------------
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
