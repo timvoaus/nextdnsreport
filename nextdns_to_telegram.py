@@ -137,7 +137,7 @@ async def process_credentials():
     if cf_api_token and cf_account_id:
         cf_queries = get_cloudflare_queries(cf_account_id, cf_api_token)
         current_date = datetime.datetime.now(datetime.timezone.utc).strftime('%d-%m-%y')
-        messages.insert(0, f"<b>Total Cloudflare Workers/Pages Queries today {current_date}:</b>\n<blockquote><b>{cf_queries}</b></blockquote>")
+        messages.insert(0, f"<b>Total Cloudflare Workers/Pages Queries today {current_date}:</b>\n<code>{cf_queries}</code>")
     elif cf_api_token or cf_account_id:
         messages.insert(0, "<b>Cloudflare Error:</b> Both CF_API_TOKEN and CF_ACCOUNT_ID must be set.")
 
