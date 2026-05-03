@@ -33,24 +33,24 @@ async def send_telegram_message(message):
 def get_cloudflare_queries(cf_account_id, cf_api_token):
     try:
         now = datetime.datetime.now(datetime.timezone.utc)
-        start_date = now.strftime('%Y-%m-%d')
-        end_date = now.strftime('%Y-%m-%d')
+        start_time = now.replace(hour=0, minute=0, second=0, microsecond=0).strftime('%Y-%m-%dT%H:%M:%S.000Z')
+        end_time = now.strftime('%Y-%m-%dT%H:%M:%S.000Z')
 
         query = """
-        query GetAnalytics($accountTag: String, $dateStart: String, $dateEnd: String) {
+        query GetAnalytics($accountTag: String, $datetimeStart: String, $datetimeEnd: String) {
           viewer {
             accounts(filter: { accountTag: $accountTag }) {
-              dailyWorkersInvocationsAdaptive(limit: 10000, filter: {
-                date_geq: $dateStart,
-                date_leq: $dateEnd
+              workersInvocationsAdaptive(limit: 10000, filter: {
+                datetime_geq: $datetimeStart,
+                datetime_leq: $datetimeEnd
               }) {
                 sum {
                   requests
                 }
               }
-              dailyPagesFunctionsInvocationsAdaptiveGroups(limit: 10000, filter: {
-                date_geq: $dateStart,
-                date_leq: $dateEnd
+              pagesFunctionsInvocationsAdaptiveGroups(limit: 10000, filter: {
+                datetime_geq: $datetimeStart,
+                datetime_leq: $datetimeEnd
               }) {
                 sum {
                   requests
@@ -63,12 +63,11 @@ def get_cloudflare_queries(cf_account_id, cf_api_token):
 
         variables = {
             "accountTag": cf_account_id,
-            "dateStart": start_date,
-            "dateEnd": end_date
+            "datetimeStart": start_time,
+            "datetimeEnd": end_time
         }
 
         data = json.dumps({"query": query, "variables": variables}).encode("utf-8")
-        # Kept api.cloudflare.com endpoint since API Tokens do not work with dash.cloudflare.com
         req = urllib.request.Request("https://api.cloudflare.com/client/v4/graphql", data=data)
         req.add_header("Authorization", f"Bearer {cf_api_token}")
         req.add_header("Content-Type", "application/json")
@@ -85,8 +84,8 @@ def get_cloudflare_queries(cf_account_id, cf_api_token):
                 return "Error: No accounts found or access denied"
                 
             account_data = accounts[0]
-            workers_data = account_data.get("dailyWorkersInvocationsAdaptive", [])
-            pages_data = account_data.get("dailyPagesFunctionsInvocationsAdaptiveGroups", [])
+            workers_data = account_data.get("workersInvocationsAdaptive", [])
+            pages_data = account_data.get("pagesFunctionsInvocationsAdaptiveGroups", [])
             
             total_requests = 0
             for group in workers_data:
@@ -137,7 +136,8 @@ async def process_credentials():
     
     if cf_api_token and cf_account_id:
         cf_queries = get_cloudflare_queries(cf_account_id, cf_api_token)
-        messages.insert(0, f"<b>Cloudflare Workers/Pages Queries (Today):</b> {cf_queries}")
+        current_date = datetime.datetime.now(datetime.timezone.utc).strftime('%d-%m-%y')
+        messages.insert(0, f"<b>Total Cloudflare Workers/Pages Queries today {current_date}:</b> {cf_queries}")
     elif cf_api_token or cf_account_id:
         messages.insert(0, "<b>Cloudflare Error:</b> Both CF_API_TOKEN and CF_ACCOUNT_ID must be set.")
 
