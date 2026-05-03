@@ -3,7 +3,10 @@ from nextdnsapi.api import *
 from telegram import Bot
 from telegram.constants import ParseMode
 import os
-
+import urllib.request
+import urllib.error
+import json
+import datetime
 # Get the credentials from the environment variable
 credentials = os.getenv('CREDENTIALS')
 if not credentials:
@@ -25,6 +28,75 @@ bot = Bot(token=telegram_bot_token)
 # Function to send a message to the Telegram bot
 async def send_telegram_message(message):
     await bot.send_message(chat_id=chat_id, text=message, parse_mode=ParseMode.HTML)
+
+# Function to get Cloudflare queries for today
+def get_cloudflare_queries(cf_account_id, cf_api_token):
+    try:
+        now = datetime.datetime.now(datetime.timezone.utc)
+        start_date = now.strftime('%Y-%m-%d')
+        end_date = now.strftime('%Y-%m-%d')
+
+        query = """
+        query GetAnalytics($accountTag: String, $dateStart: String, $dateEnd: String) {
+          viewer {
+            accounts(filter: { accountTag: $accountTag }) {
+              dailyWorkersInvocationsAdaptive(limit: 10000, filter: {
+                date_geq: $dateStart,
+                date_leq: $dateEnd
+              }) {
+                sum {
+                  requests
+                }
+              }
+              dailyPagesFunctionsInvocationsAdaptiveGroups(limit: 10000, filter: {
+                date_geq: $dateStart,
+                date_leq: $dateEnd
+              }) {
+                sum {
+                  requests
+                }
+              }
+            }
+          }
+        }
+        """
+
+        variables = {
+            "accountTag": cf_account_id,
+            "dateStart": start_date,
+            "dateEnd": end_date
+        }
+
+        data = json.dumps({"query": query, "variables": variables}).encode("utf-8")
+        # Kept api.cloudflare.com endpoint since API Tokens do not work with dash.cloudflare.com
+        req = urllib.request.Request("https://api.cloudflare.com/client/v4/graphql", data=data)
+        req.add_header("Authorization", f"Bearer {cf_api_token}")
+        req.add_header("Content-Type", "application/json")
+        req.add_header("Accept", "application/json")
+
+        with urllib.request.urlopen(req) as response:
+            result = json.loads(response.read().decode())
+            
+            if "errors" in result and result["errors"]:
+                return f"Error: {result['errors'][0].get('message', 'Unknown GraphQL error')}"
+                
+            accounts = result.get("data", {}).get("viewer", {}).get("accounts", [])
+            if not accounts:
+                return "Error: No accounts found or access denied"
+                
+            account_data = accounts[0]
+            workers_data = account_data.get("dailyWorkersInvocationsAdaptive", [])
+            pages_data = account_data.get("dailyPagesFunctionsInvocationsAdaptiveGroups", [])
+            
+            total_requests = 0
+            for group in workers_data:
+                total_requests += group.get("sum", {}).get("requests", 0)
+            for group in pages_data:
+                total_requests += group.get("sum", {}).get("requests", 0)
+                
+            return str(total_requests)
+    except Exception as e:
+        return f"Exception: {str(e)}"
 
 # Main function to process the credentials and collect messages
 async def process_credentials():
@@ -60,6 +132,15 @@ async def process_credentials():
             messages.append(error_message)
     
     # Send all messages concatenated together
+    cf_api_token = os.getenv('CF_API_TOKEN')
+    cf_account_id = os.getenv('CF_ACCOUNT_ID')
+    
+    if cf_api_token and cf_account_id:
+        cf_queries = get_cloudflare_queries(cf_account_id, cf_api_token)
+        messages.insert(0, f"<b>Cloudflare Workers/Pages Queries (Today):</b> {cf_queries}")
+    elif cf_api_token or cf_account_id:
+        messages.insert(0, "<b>Cloudflare Error:</b> Both CF_API_TOKEN and CF_ACCOUNT_ID must be set.")
+
     final_message = "\n\n".join(messages)
     await send_telegram_message(final_message)
 
