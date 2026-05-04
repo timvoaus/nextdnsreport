@@ -2,7 +2,7 @@ name: Send NextDNS Report to Telegram
 
 on:
   schedule:
-    - cron: '55 23 * * *' # This will run at 23:55 UTC (9:55 AM AEST / Sydney Time)
+    - cron: '30 23 * * *' # This will run at 23:30 UTC (9:30 AM AEST / Sydney Time)
   push:
     branches:
       - main
